@@ -19,8 +19,6 @@ package org.apache.helix.controller.rebalancer.waged.model;
  * under the License.
  */
 
-import static org.mockito.Mockito.when;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +35,8 @@ import org.apache.helix.model.InstanceConfig;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import static org.mockito.Mockito.when;
 
 public class TestAssignableNode extends AbstractTestClusterModel {
   @BeforeClass
@@ -63,7 +63,7 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     expectedCapacityMap.put("item3", 30);
 
     AssignableNode assignableNode = new AssignableNode(testCache.getClusterConfig(),
-        testCache.getInstanceConfigMap().get(_testInstanceId), _testInstanceId);
+        testCache.getInstanceConfigMap().get(_testInstanceId));
     assignableNode.assignInitBatch(assignmentSet);
     Assert.assertEquals(assignableNode.getAssignedPartitionsMap(), expectedAssignment);
     Assert.assertEquals(assignableNode.getAssignedReplicaCount(), 4);
@@ -167,7 +167,7 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     ResourceControllerDataProvider testCache = setupClusterDataCache();
 
     AssignableNode assignableNode = new AssignableNode(testCache.getClusterConfig(),
-        testCache.getInstanceConfigMap().get(_testInstanceId), _testInstanceId);
+        testCache.getInstanceConfigMap().get(_testInstanceId));
     AssignableReplica removingReplica = new AssignableReplica(testCache.getClusterConfig(),
         testCache.getResourceConfig(_resourceNames.get(1)), _partitionNames.get(2) + "non-exist",
         "MASTER", 1);
@@ -182,7 +182,7 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     Set<AssignableReplica> assignmentSet = generateReplicas(testCache);
 
     AssignableNode assignableNode = new AssignableNode(testCache.getClusterConfig(),
-        testCache.getInstanceConfigMap().get(_testInstanceId), _testInstanceId);
+        testCache.getInstanceConfigMap().get(_testInstanceId));
     assignableNode.assignInitBatch(assignmentSet);
     AssignableReplica duplicateReplica = new AssignableReplica(testCache.getClusterConfig(),
         testCache.getResourceConfig(_resourceNames.get(0)), _partitionNames.get(0), "SLAVE", 2);
@@ -206,7 +206,7 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     when(testCache.getInstanceConfigMap()).thenReturn(instanceConfigMap);
 
     new AssignableNode(testCache.getClusterConfig(),
-        testCache.getInstanceConfigMap().get(_testInstanceId), _testInstanceId);
+        testCache.getInstanceConfigMap().get(_testInstanceId));
   }
 
   @Test
@@ -226,7 +226,7 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     when(testCache.getInstanceConfigMap()).thenReturn(instanceConfigMap);
 
     AssignableNode assignableNode = new AssignableNode(testCache.getClusterConfig(),
-        testCache.getInstanceConfigMap().get(_testInstanceId), _testInstanceId);
+        testCache.getInstanceConfigMap().get(_testInstanceId));
 
     Assert.assertEquals(assignableNode.getFaultZone(), "2/");
 
@@ -243,7 +243,7 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     when(testCache.getInstanceConfigMap()).thenReturn(instanceConfigMap);
 
     assignableNode = new AssignableNode(testCache.getClusterConfig(),
-        testCache.getInstanceConfigMap().get(_testInstanceId), _testInstanceId);
+        testCache.getInstanceConfigMap().get(_testInstanceId));
 
     Assert.assertEquals(assignableNode.getFaultZone(), "2/testInstance/");
   }
@@ -256,7 +256,7 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     InstanceConfig testInstanceConfig = new InstanceConfig("testInstanceConfigId");
 
     AssignableNode assignableNode =
-        new AssignableNode(testClusterConfig, testInstanceConfig, _testInstanceId);
+        new AssignableNode(testClusterConfig, testInstanceConfig);
     Assert.assertEquals(assignableNode.getMaxCapacity(), _capacityDataMap);
   }
 
@@ -270,6 +270,6 @@ public class TestAssignableNode extends AbstractTestClusterModel {
     InstanceConfig testInstanceConfig = new InstanceConfig("testInstanceConfigId");
     testInstanceConfig.setInstanceCapacityMap(_capacityDataMap);
 
-    new AssignableNode(testClusterConfig, testInstanceConfig, _testInstanceId);
+    new AssignableNode(testClusterConfig, testInstanceConfig);
   }
 }

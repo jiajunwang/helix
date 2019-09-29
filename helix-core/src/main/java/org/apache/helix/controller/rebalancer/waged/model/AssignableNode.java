@@ -28,15 +28,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.helix.HelixException;
 import org.apache.helix.model.ClusterConfig;
 import org.apache.helix.model.InstanceConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 /**
  * This class represents a possible allocation of the replication.
@@ -45,10 +43,11 @@ import com.google.common.collect.ImmutableSet;
 public class AssignableNode implements Comparable<AssignableNode> {
   private static final Logger LOG = LoggerFactory.getLogger(AssignableNode.class.getName());
 
-  // Immutable Instance Properties
+  // Immutable node properties
   private final String _instanceName;
+  private final String _topologyName;
   private final String _faultZone;
-  // maximum number of the partitions that can be assigned to the instance.
+  // Maximum number of the partitions that can be assigned to the instance.
   private final int _maxPartition;
   private final ImmutableSet<String> _instanceTags;
   private final ImmutableMap<String, List<String>> _disabledPartitionsMap;
@@ -72,13 +71,21 @@ public class AssignableNode implements Comparable<AssignableNode> {
    * ResourceConfig could
    * subject to change. If the assumption is no longer true, this function should become private.
    */
-  AssignableNode(ClusterConfig clusterConfig, InstanceConfig instanceConfig, String instanceName) {
-    _instanceName = instanceName;
-    Map<String, Integer> instanceCapacity = fetchInstanceCapacity(clusterConfig, instanceConfig);
-    _faultZone = computeFaultZone(clusterConfig, instanceConfig);
+  AssignableNode(ClusterConfig clusterConfig, InstanceConfig instanceConfig) {
+    _instanceName = instanceConfig.getInstanceName();
+    if (clusterConfig.isTopologyAwareEnabled()) {
+      _faultZone = computeFaultZone(clusterConfig.getTopology(), clusterConfig.getFaultZoneType(),
+          instanceConfig);
+      _topologyName = computeDomainName(clusterConfig.getTopology(), instanceConfig);
+    } else {
+      // Instance name is the default fault zone if topology awareness is false.
+      _faultZone = _instanceName;
+      _topologyName = _instanceName;
+    }
     _instanceTags = ImmutableSet.copyOf(instanceConfig.getTags());
     _disabledPartitionsMap = ImmutableMap.copyOf(instanceConfig.getDisabledPartitionsMap());
     // make a copy of max capacity
+    Map<String, Integer> instanceCapacity = fetchInstanceCapacity(clusterConfig, instanceConfig);
     _maxAllowedCapacity = ImmutableMap.copyOf(instanceCapacity);
     _remainingCapacity = new HashMap<>(instanceCapacity);
     _maxPartition = clusterConfig.getMaxPartitionsPerInstance();
@@ -133,7 +140,7 @@ public class AssignableNode implements Comparable<AssignableNode> {
     // Check if the release is necessary
     if (!_currentAssignedReplicaMap.containsKey(resourceName)) {
       LOG.warn("Resource {} is not on node {}. Ignore the release call.", resourceName,
-          getInstanceName());
+          getName());
       return;
     }
 
@@ -141,7 +148,7 @@ public class AssignableNode implements Comparable<AssignableNode> {
     if (!partitionMap.containsKey(partitionName)
         || !partitionMap.get(partitionName).equals(replica)) {
       LOG.warn("Replica {} is not assigned to node {}. Ignore the release call.",
-          replica.toString(), getInstanceName());
+          replica.toString(), getName());
       return;
     }
 
@@ -233,7 +240,11 @@ public class AssignableNode implements Comparable<AssignableNode> {
     return _highestCapacityUtilization;
   }
 
-  public String getInstanceName() {
+  public String getName() {
+    return _topologyName;
+  }
+
+  String getInstanceName() {
     return _instanceName;
   }
 
@@ -265,7 +276,7 @@ public class AssignableNode implements Comparable<AssignableNode> {
   }
 
   /**
-   * Computes the fault zone id based on the domain and fault zone type when topology is enabled.
+   * Compute the fault zone id based on the domain and fault zone type when topology is enabled.
    * For example, when
    * the domain is "zone=2, instance=testInstance" and the fault zone type is "zone", this function
    * returns "2".
@@ -274,13 +285,8 @@ public class AssignableNode implements Comparable<AssignableNode> {
    * For now, the WAGED rebalancer has a more strict topology def requirement.
    * Any missing field will cause an invalid topology config exception.
    */
-  private String computeFaultZone(ClusterConfig clusterConfig, InstanceConfig instanceConfig) {
-    if (!clusterConfig.isTopologyAwareEnabled()) {
-      // Instance name is the default fault zone if topology awareness is false.
-      return instanceConfig.getInstanceName();
-    }
-    String topologyStr = clusterConfig.getTopology();
-    String faultZoneType = clusterConfig.getFaultZoneType();
+  private String computeFaultZone(String topologyStr, String faultZoneType,
+      InstanceConfig instanceConfig) {
     if (topologyStr == null || faultZoneType == null) {
       LOG.debug("Topology configuration is not complete. Topology define: {}, Fault Zone Type: {}",
           topologyStr, faultZoneType);
@@ -289,37 +295,65 @@ public class AssignableNode implements Comparable<AssignableNode> {
       String zoneId = instanceConfig.getZoneId();
       return zoneId == null ? instanceConfig.getInstanceName() : zoneId;
     } else {
-      // Get the fault zone information from the complete topology definition.
-      String[] topologyDef = topologyStr.trim().split("/");
-      if (topologyDef.length == 0
-          || Arrays.stream(topologyDef).noneMatch(type -> type.equals(faultZoneType))) {
-        throw new HelixException(
-            "The configured topology definition is empty or does not contain the fault zone type.");
-      }
+      return getDomainNameStr(topologyStr, faultZoneType, instanceConfig.getDomainAsMap());
+    }
+  }
 
-      Map<String, String> domainAsMap = instanceConfig.getDomainAsMap();
-      if (domainAsMap == null) {
-        throw new HelixException(
-            String.format("The domain configuration of node %s is not configured", _instanceName));
-      } else {
-        StringBuilder faultZoneStringBuilder = new StringBuilder();
-        for (String key : topologyDef) {
-          if (!key.isEmpty()) {
-            if (domainAsMap.containsKey(key)) {
-              faultZoneStringBuilder.append(domainAsMap.get(key));
-              faultZoneStringBuilder.append('/');
-            } else {
-              throw new HelixException(String.format(
-                  "The domain configuration of node %s is not complete. Type %s is not found.",
-                  _instanceName, key));
-            }
-            if (key.equals(faultZoneType)) {
-              break;
-            }
+  /**
+   * Compute the full domain name of the instance based on the topology.
+   */
+  private String computeDomainName(String topologyStr, InstanceConfig instanceConfig) {
+    if (topologyStr == null) {
+      LOG.debug("Topology configuration is empty. Use the instance name as the domain name.");
+      return instanceConfig.getInstanceName();
+    } else {
+      return getDomainNameStr(topologyStr, null, instanceConfig.getDomainAsMap());
+    }
+  }
+
+  /**
+   * Get the shortest domain name of the instance that contains the target domain key based on the
+   * topology definition.
+   * For example, if topology def is "/DOMAIN/ZONE/HOST", and the target key is "ZONE", the method
+   * will return the instance domain name that consists of DOMAIN and ZONE only.
+   * @param topologyDefStr      the topology definition in a string.
+   * @param targetDomainKey     the target domain key.
+   *                            If this param is null, return the full domain name.
+   * @param instanceDomainAsMap the instance domain information in a map.
+   */
+  private String getDomainNameStr(String topologyDefStr, String targetDomainKey,
+      Map<String, String> instanceDomainAsMap) {
+    String[] topologyDef = topologyDefStr.trim().split("/");
+    if (topologyDef.length == 0) {
+      throw new HelixException("The configured topology definition is empty");
+    }
+    if (targetDomainKey != null && Arrays.stream(topologyDef)
+        .noneMatch(type -> type.equals(targetDomainKey))) {
+      throw new HelixException(String
+          .format("The configured topology definition does not contain the required Domain Key {}.",
+              targetDomainKey));
+    }
+    if (instanceDomainAsMap == null) {
+      throw new HelixException(
+          String.format("The domain configuration of node %s is not configured", _instanceName));
+    } else {
+      StringBuilder domainNameBuilder = new StringBuilder();
+      for (String key : topologyDef) {
+        if (!key.isEmpty()) {
+          if (instanceDomainAsMap.containsKey(key)) {
+            domainNameBuilder.append(instanceDomainAsMap.get(key));
+            domainNameBuilder.append('/');
+          } else {
+            throw new HelixException(String
+                .format("The domain configuration of node %s is not complete. Key %s is not found.",
+                    _instanceName, key));
+          }
+          if (targetDomainKey != null && key.equals(targetDomainKey)) {
+            break;
           }
         }
-        return faultZoneStringBuilder.toString();
       }
+      return domainNameBuilder.toString();
     }
   }
 
@@ -334,7 +368,7 @@ public class AssignableNode implements Comparable<AssignableNode> {
       throw new HelixException(String.format(
           "Resource %s already has a replica with state %s from partition %s on node %s",
           replica.getResourceName(), replica.getReplicaState(), replica.getPartitionName(),
-          getInstanceName()));
+          getName()));
     } else {
       _currentAssignedReplicaMap.computeIfAbsent(resourceName, key -> new HashMap<>())
           .put(partitionName, replica);
@@ -357,6 +391,7 @@ public class AssignableNode implements Comparable<AssignableNode> {
 
   /**
    * Get and validate the instance capacity from instance config.
+   *
    * @throws HelixException if any required capacity key is not configured in the instance config.
    */
   private Map<String, Integer> fetchInstanceCapacity(ClusterConfig clusterConfig,
@@ -372,23 +407,24 @@ public class AssignableNode implements Comparable<AssignableNode> {
     if (!instanceCapacity.keySet().containsAll(requiredCapacityKeys)) {
       throw new HelixException(String.format(
           "The required capacity keys %s are not fully configured in the instance %s capacity map %s.",
-          requiredCapacityKeys.toString(), _instanceName, instanceCapacity.toString()));
+          requiredCapacityKeys.toString(), instanceConfig.getInstanceName(),
+          instanceCapacity.toString()));
     }
     return instanceCapacity;
   }
 
   @Override
   public int hashCode() {
-    return _instanceName.hashCode();
+    return _topologyName.hashCode();
   }
 
   @Override
   public int compareTo(AssignableNode o) {
-    return _instanceName.compareTo(o.getInstanceName());
+    return _topologyName.compareTo(o._topologyName);
   }
 
   @Override
   public String toString() {
-    return _instanceName;
+    return _topologyName;
   }
 }

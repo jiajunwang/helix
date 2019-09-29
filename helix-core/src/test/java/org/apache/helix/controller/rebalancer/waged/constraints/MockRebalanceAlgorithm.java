@@ -66,7 +66,7 @@ public class MockRebalanceAlgorithm implements RebalanceAlgorithm {
         if (assignment.getReplicaMap(partition).isEmpty()) {
           assignment.addReplicaMap(partition, new HashMap<>());
         }
-        assignment.getReplicaMap(partition).put(node.getInstanceName(), replica.getReplicaState());
+        assignment.getReplicaMap(partition).put(node.getName(), replica.getReplicaState());
       }
     }
 

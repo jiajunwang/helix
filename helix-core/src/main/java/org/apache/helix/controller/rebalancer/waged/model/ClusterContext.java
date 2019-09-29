@@ -53,11 +53,11 @@ public class ClusterContext {
   private final Map<String, ResourceAssignment> _bestPossibleAssignment;
 
   /**
-   * Construct the cluster context based on the current instance status.
+   * Construct the cluster context based on the current node status.
    * @param replicaSet All the partition replicas that are managed by the rebalancer
-   * @param instanceCount The count of all the active instances that can be used to host partitions.
+   * @param nodeCount The count of all the active nodes that can be used to host partitions.
    */
-  ClusterContext(Set<AssignableReplica> replicaSet, int instanceCount,
+  ClusterContext(Set<AssignableReplica> replicaSet, int nodeCount,
       Map<String, ResourceAssignment> baselineAssignment, Map<String, ResourceAssignment> bestPossibleAssignment) {
     int totalReplicas = 0;
     int totalTopStateReplicas = 0;
@@ -68,14 +68,14 @@ public class ClusterContext {
       int replicas = entry.getValue().size();
       totalReplicas += replicas;
 
-      int replicaCnt = Math.max(1, estimateAvgReplicaCount(replicas, instanceCount));
+      int replicaCnt = Math.max(1, estimateAvgReplicaCount(replicas, nodeCount));
       _estimatedMaxPartitionByResource.put(entry.getKey(), replicaCnt);
 
       totalTopStateReplicas += entry.getValue().stream().filter(AssignableReplica::isReplicaTopState).count();
     }
 
-    _estimatedMaxPartitionCount = estimateAvgReplicaCount(totalReplicas, instanceCount);
-    _estimatedMaxTopStateCount = estimateAvgReplicaCount(totalTopStateReplicas, instanceCount);
+    _estimatedMaxPartitionCount = estimateAvgReplicaCount(totalReplicas, nodeCount);
+    _estimatedMaxTopStateCount = estimateAvgReplicaCount(totalTopStateReplicas, nodeCount);
     _baselineAssignment = baselineAssignment;
     _bestPossibleAssignment = bestPossibleAssignment;
   }
@@ -130,7 +130,7 @@ public class ClusterContext {
     _assignmentForFaultZoneMap = assignmentForFaultZoneMap;
   }
 
-  private int estimateAvgReplicaCount(int replicaCount, int instanceCount) {
-    return (int) Math.ceil((float) replicaCount / instanceCount * ERROR_MARGIN_FOR_ESTIMATED_MAX_COUNT);
+  private int estimateAvgReplicaCount(int replicaCount, int nodeCount) {
+    return (int) Math.ceil((float) replicaCount / nodeCount * ERROR_MARGIN_FOR_ESTIMATED_MAX_COUNT);
   }
 }

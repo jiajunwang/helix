@@ -74,14 +74,14 @@ public class ClusterModelProvider {
 
     // Check if the replicas need to be reassigned.
     Map<String, Set<AssignableReplica>> allocatedReplicas =
-        new HashMap<>(); // <instanceName, replica set>
+        new HashMap<>(); // <nodeName, replica set>
     Set<AssignableReplica> toBeAssignedReplicas =
         findToBeAssignedReplicas(replicaMap, clusterChanges, activeInstances,
             bestPossibleAssignment, allocatedReplicas);
 
     // Update the allocated replicas to the assignable nodes.
     assignableNodes.stream().forEach(node -> node.assignInitBatch(
-        allocatedReplicas.getOrDefault(node.getInstanceName(), Collections.emptySet())));
+        allocatedReplicas.getOrDefault(node.getName(), Collections.emptySet())));
 
     // Construct and initialize cluster context.
     ClusterContext context = new ClusterContext(
@@ -106,7 +106,7 @@ public class ClusterModelProvider {
    * @param clusterChanges         A map contains all the important metadata updates that happened after the previous rebalance.
    * @param activeInstances        All the instances that are alive and enabled.
    * @param bestPossibleAssignment The current best possible assignment.
-   * @param allocatedReplicas      Return the allocated replicas grouped by the target instance name.
+   * @param allocatedReplicas      Return the allocated replicas grouped by the target node name.
    * @return The replicas that need to be reassigned.
    */
   private static Set<AssignableReplica> findToBeAssignedReplicas(
@@ -141,25 +141,25 @@ public class ClusterModelProvider {
               .collect(Collectors.toMap(partition -> partition.getPartitionName(),
                   partition -> new HashMap<>(assignment.getReplicaMap(partition))));
           for (AssignableReplica replica : replicas) {
-            // Find any ACTIVE instance allocation that has the same state with the replica
-            Optional<Map.Entry<String, String>> instanceNameOptional =
+            // Find any ACTIVE partition assignment that has the same state with the replica
+            Optional<Map.Entry<String, String>> nodeNameOptional =
                 stateMap.getOrDefault(replica.getPartitionName(), Collections.emptyMap()).entrySet()
                     .stream().filter(instanceStateMap ->
                     instanceStateMap.getValue().equals(replica.getReplicaState()) && activeInstances
                         .contains(instanceStateMap.getKey())).findAny();
-            // 3. if no such an instance in the bestPossible assignment, need to reassign the replica
-            if (!instanceNameOptional.isPresent()) {
+            // 3. if no such a node in the bestPossible assignment, need to reassign the replica
+            if (!nodeNameOptional.isPresent()) {
               toBeAssignedReplicas.add(replica);
               continue; // go to check the next replica
             } else {
-              String instanceName = instanceNameOptional.get().getKey();
+              String nodeName = nodeNameOptional.get().getKey();
               // * cleanup the best possible state map record,
               // * so the selected instance won't be picked up again for the another replica check
               stateMap.getOrDefault(replica.getPartitionName(), Collections.emptyMap())
-                  .remove(instanceName);
+                  .remove(nodeName);
               // the current best possible assignment for this replica is valid,
               // add to the allocated replica list.
-              allocatedReplicas.computeIfAbsent(instanceName, key -> new HashSet<>()).add(replica);
+              allocatedReplicas.computeIfAbsent(nodeName, key -> new HashSet<>()).add(replica);
             }
           }
         }
@@ -174,14 +174,22 @@ public class ClusterModelProvider {
    * @param clusterConfig     The cluster configuration.
    * @param instanceConfigMap A map of all the instance configuration.
    * @param activeInstances   All the instances that are online and enabled.
-   * @return A map of assignable node set, <InstanceName, node set>.
+   * @return A set of AssignableNodes
    */
   private static Set<AssignableNode> parseAllNodes(ClusterConfig clusterConfig,
       Map<String, InstanceConfig> instanceConfigMap, Set<String> activeInstances) {
-    return activeInstances.stream().map(
-        instanceName -> new AssignableNode(clusterConfig, instanceConfigMap.get(instanceName),
-            instanceName))
-        .collect(Collectors.toSet());
+    Set<AssignableNode> assignableNodeSet = new HashSet<>();
+    for (String instanceName : activeInstances) {
+      AssignableNode newNode =
+          new AssignableNode(clusterConfig, instanceConfigMap.get(instanceName));
+      if (assignableNodeSet.contains(newNode)) {
+        throw new HelixException(String
+            .format("Find duplicate assignable node. Instance name: %s. Duplicate node name: %s.",
+                instanceName, newNode.getName()));
+      }
+      assignableNodeSet.add(newNode);
+    }
+    return assignableNodeSet;
   }
 
   /**

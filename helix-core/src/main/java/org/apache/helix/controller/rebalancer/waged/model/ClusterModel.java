@@ -42,7 +42,7 @@ public class ClusterModel {
    * @param clusterContext         The initialized cluster context.
    * @param assignableReplicas     The replicas to be assigned.
    *                               Note that the replicas in this list shall not be included while initializing the context and assignable nodes.
-   * @param assignableNodes        The active instances.
+   * @param assignableNodes        The active nodes.
    */
   ClusterModel(ClusterContext clusterContext, Set<AssignableReplica> assignableReplicas,
       Set<AssignableNode> assignableNodes) {
@@ -52,14 +52,14 @@ public class ClusterModel {
     _assignableReplicaMap = assignableReplicas.stream()
         .collect(Collectors.groupingBy(AssignableReplica::getResourceName, Collectors.toSet()));
 
-    // Index all the replicas to be assigned. Dedup the replica if two instances have the same resource/partition/state
+    // Index all the replicas to be assigned. Dedup the replica if two nodes have the same resource/partition/state
     _assignableReplicaIndex = assignableReplicas.stream().collect(Collectors
         .groupingBy(AssignableReplica::getResourceName, Collectors
             .toMap(AssignableReplica::toString, replica -> replica,
                 (oldValue, newValue) -> oldValue)));
 
     _assignableNodeMap = assignableNodes.stream()
-        .collect(Collectors.toMap(AssignableNode::getInstanceName, node -> node));
+        .collect(Collectors.toMap(AssignableNode::getName, node -> node));
   }
 
   public ClusterContext getContext() {
@@ -75,16 +75,16 @@ public class ClusterModel {
   }
 
   /**
-   * Assign the given replica to the specified instance and record the assignment in the cluster model.
+   * Assign the given replica to the specified node and record the assignment in the cluster model.
    * The cluster usage information will be updated accordingly.
    *
    * @param resourceName
    * @param partitionName
    * @param state
-   * @param instanceName
+   * @param nodeName
    */
-  public void assign(String resourceName, String partitionName, String state, String instanceName) {
-    AssignableNode node = locateAssignableNode(instanceName);
+  public void assign(String resourceName, String partitionName, String state, String nodeName) {
+    AssignableNode node = locateAssignableNode(nodeName);
     AssignableReplica replica = locateAssignableReplica(resourceName, partitionName, state);
 
     node.assign(replica);
@@ -98,21 +98,21 @@ public class ClusterModel {
    * @param resourceName
    * @param partitionName
    * @param state
-   * @param instanceName
+   * @param nodeName
    */
   public void release(String resourceName, String partitionName, String state,
-      String instanceName) {
-    AssignableNode node = locateAssignableNode(instanceName);
+      String nodeName) {
+    AssignableNode node = locateAssignableNode(nodeName);
     AssignableReplica replica = locateAssignableReplica(resourceName, partitionName, state);
 
     node.release(replica);
     _clusterContext.removePartitionFromFaultZone(node.getFaultZone(), resourceName, partitionName);
   }
 
-  private AssignableNode locateAssignableNode(String instanceName) {
-    AssignableNode node = _assignableNodeMap.get(instanceName);
+  private AssignableNode locateAssignableNode(String nodeName) {
+    AssignableNode node = _assignableNodeMap.get(nodeName);
     if (node == null) {
-      throw new HelixException("Cannot find the instance: " + instanceName);
+      throw new HelixException("Cannot find the node: " + nodeName);
     }
     return node;
   }

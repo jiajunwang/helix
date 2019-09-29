@@ -29,7 +29,7 @@ import org.apache.helix.model.Partition;
 import org.apache.helix.model.ResourceAssignment;
 
 /**
- * The data model represents the optimal assignment of N replicas assigned to M instances;
+ * The data model represents the optimal assignment of N replicas assigned to M nodes;
  * It's mostly used as the return parameter of an assignment calculation algorithm; If the algorithm
  * failed to find optimal assignment given the endeavor, the user could check the failure reasons.
  * Note that this class is not thread safe.
@@ -72,7 +72,7 @@ public class OptimalAssignment {
           // So if the returned map is empty, create a new map.
           partitionStateMap = new HashMap<>();
         }
-        partitionStateMap.put(node.getInstanceName(), replica.getReplicaState());
+        partitionStateMap.put(node.getName(), replica.getReplicaState());
         resourceAssignment.addReplicaMap(partition, partitionStateMap);
       }
     }

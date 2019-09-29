@@ -80,7 +80,7 @@ class ConstraintBasedAlgorithm implements RebalanceAlgorithm {
       }
       maybeBestNode.ifPresent(node -> clusterModel
           .assign(replica.getResourceName(), replica.getPartitionName(), replica.getReplicaState(),
-              node.getInstanceName()));
+              node.getName()));
     }
     optimalAssignment.updateAssignments(clusterModel);
     return optimalAssignment;

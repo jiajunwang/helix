@@ -109,7 +109,7 @@ public class TestClusterModelProvider extends AbstractTestClusterModel {
         .anyMatch(node -> node.getAssignedReplicaCount() != 0));
     // Have all 3 instances
     Assert.assertEquals(
-        clusterModel.getAssignableNodes().values().stream().map(AssignableNode::getInstanceName)
+        clusterModel.getAssignableNodes().values().stream().map(AssignableNode::getName)
             .collect(Collectors.toSet()), _instances);
     // Shall have 2 resources and 4 replicas, since all nodes are in the same fault zone.
     Assert.assertEquals(clusterModel.getAssignableReplicaMap().size(), 2);
@@ -134,7 +134,7 @@ public class TestClusterModelProvider extends AbstractTestClusterModel {
         Collections.emptyMap());
     // Have only one instance
     Assert.assertEquals(
-        clusterModel.getAssignableNodes().values().stream().map(AssignableNode::getInstanceName)
+        clusterModel.getAssignableNodes().values().stream().map(AssignableNode::getName)
             .collect(Collectors.toSet()), Collections.singleton(_testInstanceId));
     // Shall have 4 assignable replicas because there is only one valid node.
     Assert.assertTrue(clusterModel.getAssignableReplicaMap().values().stream()
@@ -247,7 +247,7 @@ public class TestClusterModelProvider extends AbstractTestClusterModel {
         .anyMatch(node -> node.getAssignedReplicaCount() != 0));
     // Have only 2 instances
     Assert.assertEquals(
-        clusterModel.getAssignableNodes().values().stream().map(AssignableNode::getInstanceName)
+        clusterModel.getAssignableNodes().values().stream().map(AssignableNode::getName)
             .collect(Collectors.toSet()), limitedActiveInstances);
     // Since only 2 instances are active, we shall have 8 assignable replicas in each resource.
     Assert.assertEquals(clusterModel.getAssignableReplicaMap().size(), 2);

@@ -43,7 +43,7 @@ public class TestClusterModel extends AbstractTestClusterModel {
     Set<AssignableNode> nodeSet = new HashSet<>();
     testCache.getInstanceConfigMap().values().stream().forEach(config -> nodeSet.add(
         new AssignableNode(testCache.getClusterConfig(),
-            testCache.getInstanceConfigMap().get(_testInstanceId), config.getInstanceName())));
+            testCache.getInstanceConfigMap().get(_testInstanceId))));
     return nodeSet;
   }
 
@@ -71,7 +71,7 @@ public class TestClusterModel extends AbstractTestClusterModel {
     AssignableNode assignableNode = assignableNodes.iterator().next();
     clusterModel
         .assign(replica.getResourceName(), replica.getPartitionName(), replica.getReplicaState(),
-            assignableNode.getInstanceName());
+            assignableNode.getName());
 
     Assert.assertTrue(
         clusterModel.getContext().getAssignmentForFaultZoneMap().get(assignableNode.getFaultZone())
@@ -82,7 +82,7 @@ public class TestClusterModel extends AbstractTestClusterModel {
     // Assign a nonexist replication
     try {
       clusterModel.assign("NOT-EXIST", replica.getPartitionName(), replica.getReplicaState(),
-          assignableNode.getInstanceName());
+          assignableNode.getName());
       Assert.fail("Assigning a non existing resource partition shall fail.");
     } catch (HelixException ex) {
       // expected
@@ -101,7 +101,7 @@ public class TestClusterModel extends AbstractTestClusterModel {
     // Release
     clusterModel
         .release(replica.getResourceName(), replica.getPartitionName(), replica.getReplicaState(),
-            assignableNode.getInstanceName());
+            assignableNode.getName());
 
     Assert.assertTrue(clusterModel.getContext().getAssignmentForFaultZoneMap().values().stream()
         .allMatch(resourceMap -> resourceMap.values().stream()

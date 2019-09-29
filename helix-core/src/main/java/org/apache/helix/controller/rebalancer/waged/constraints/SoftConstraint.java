@@ -68,7 +68,7 @@ abstract class SoftConstraint {
   }
 
   /**
-   * Evaluate and give a score for an potential assignment partition -> instance
+   * Evaluate and give a score for an potential assignment partition -> node
    * Child class only needs to care about how the score is implemented
    * @return The score of the assignment in float value
    */
@@ -76,7 +76,7 @@ abstract class SoftConstraint {
       ClusterContext clusterContext);
 
   /**
-   * Evaluate and give a score for an potential assignment partition -> instance
+   * Evaluate and give a score for an potential assignment partition -> node
    * It's the only exposed method to the caller
    * @return The score is normalized to be within MinScore and MaxScore
    */

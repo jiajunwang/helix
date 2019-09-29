@@ -52,7 +52,7 @@ public class TestPartitionMovementConstraint {
     _clusterContext = mock(ClusterContext.class);
     when(_testReplica.getResourceName()).thenReturn(RESOURCE);
     when(_testReplica.getPartitionName()).thenReturn(PARTITION);
-    when(_testNode.getInstanceName()).thenReturn(INSTANCE);
+    when(_testNode.getName()).thenReturn(INSTANCE);
   }
 
   @Test

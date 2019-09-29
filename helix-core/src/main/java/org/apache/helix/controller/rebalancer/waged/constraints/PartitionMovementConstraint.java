@@ -84,12 +84,12 @@ class PartitionMovementConstraint extends SoftConstraint {
   }
 
   private float calculateAssignmentScale(AssignableNode node, AssignableReplica replica,
-      Map<String, String> instanceToStateMap) {
-    String instanceName = node.getInstanceName();
-    if (!instanceToStateMap.containsKey(instanceName)) {
+      Map<String, String> nodeToStateMap) {
+    String nodeName = node.getName();
+    if (!nodeToStateMap.containsKey(nodeName)) {
       return 0;
     } else {
-      return (instanceToStateMap.get(instanceName).equals(replica.getReplicaState()) ? 1
+      return (nodeToStateMap.get(nodeName).equals(replica.getReplicaState()) ? 1
           : ALLOCATION_MATCH_FACTOR);
     }
   }
