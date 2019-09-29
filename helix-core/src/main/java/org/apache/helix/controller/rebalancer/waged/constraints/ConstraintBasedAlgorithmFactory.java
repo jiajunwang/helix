@@ -41,7 +41,7 @@ public class ConstraintBasedAlgorithmFactory {
             new ValidGroupTagConstraint(), new SamePartitionOnInstanceConstraint());
 
     int evennessPreference =
-        preferences.getOrDefault(ClusterConfig.GlobalRebalancePreferenceKey.EVENNESS, 1);
+        preferences.getOrDefault(ClusterConfig.GlobalRebalancePreferenceKey.EVENNESS, 1) * 50;
     int movementPreference =
         preferences.getOrDefault(ClusterConfig.GlobalRebalancePreferenceKey.LESS_MOVEMENT, 1);
     float evennessRatio = (float) evennessPreference / (evennessPreference + movementPreference);
