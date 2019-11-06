@@ -281,11 +281,15 @@ public class BestPossibleStateCalcStage extends AbstractBaseStage {
 
     Map<String, IdealState> newIdealStates = new HashMap<>();
 
+    long startTime = System.currentTimeMillis();
     WagedRebalancer wagedRebalancer =
         getWagedRebalancer(helixManager, cache.getClusterConfig().getGlobalRebalancePreference());
+    System.out.println("Initialize the waged rebalancer took: " + (System.currentTimeMillis() - startTime));
     try {
+      startTime = System.currentTimeMillis();
       newIdealStates.putAll(wagedRebalancer.computeNewIdealStates(cache, wagedRebalancedResourceMap,
           currentStateOutput));
+      System.out.println("Waged rebalancing took: " + (System.currentTimeMillis() - startTime));
     } catch (HelixRebalanceException ex) {
       // Note that unlike the legacy rebalancer, the WAGED rebalance won't return partial result.
       // Since it calculates for all the eligible resources globally, a partial result is invalid.

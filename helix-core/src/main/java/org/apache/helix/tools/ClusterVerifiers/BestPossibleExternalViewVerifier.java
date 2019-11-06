@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.helix.HelixDefinedState;
-import org.apache.helix.HelixRebalanceException;
 import org.apache.helix.PropertyKey;
 import org.apache.helix.controller.common.PartitionStateMap;
 import org.apache.helix.controller.dataproviders.ResourceControllerDataProvider;
@@ -45,7 +44,6 @@ import org.apache.helix.controller.stages.BestPossibleStateOutput;
 import org.apache.helix.controller.stages.ClusterEvent;
 import org.apache.helix.controller.stages.ClusterEventType;
 import org.apache.helix.controller.stages.CurrentStateComputationStage;
-import org.apache.helix.controller.stages.CurrentStateOutput;
 import org.apache.helix.controller.stages.ResourceComputationStage;
 import org.apache.helix.manager.zk.ZkBucketDataAccessor;
 import org.apache.helix.manager.zk.ZkClient;
@@ -413,6 +411,13 @@ public class BestPossibleExternalViewVerifier extends ZkHelixClusterVerifier {
     return verifierName + "(" + _clusterName + "@" + _zkClient + "@resources["
        + (_resources != null ? Arrays.toString(_resources.toArray()) : "") + "])";
   }
+
+  public static void main(String [] args) {
+    ZkHelixClusterVerifier _clusterVerifier =
+        new BestPossibleExternalViewVerifier.Builder("waged-mock-espresso-identity2").setZkAddr("zk-ei4-ring.int.linkedin.com:3764")
+            .build();
+    _clusterVerifier.verifyByPolling();
+  }
 }
 
 /**
@@ -425,15 +430,6 @@ class DryrunWagedRebalancer extends WagedRebalancer {
       Map<ClusterConfig.GlobalRebalancePreferenceKey, Integer> preferences) {
     super(new ReadOnlyAssignmentMetadataStore(metadataStoreAddrs, clusterName),
         ConstraintBasedAlgorithmFactory.getInstance(preferences));
-  }
-
-  @Override
-  protected Map<String, ResourceAssignment> computeBestPossibleAssignment(
-      ResourceControllerDataProvider clusterData, Map<String, Resource> resourceMap,
-      Set<String> activeNodes, CurrentStateOutput currentStateOutput)
-      throws HelixRebalanceException {
-    return getBestPossibleAssignment(getAssignmentMetadataStore(), currentStateOutput,
-        resourceMap.keySet());
   }
 }
 

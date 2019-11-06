@@ -45,6 +45,7 @@ public class OptimalAssignment {
    * @param clusterModel
    */
   public void updateAssignments(ClusterModel clusterModel) {
+    long startTime = System.currentTimeMillis();
     Map<String, ResourceAssignment> assignmentMap = new HashMap<>();
     for (AssignableNode node : clusterModel.getAssignableNodes().values()) {
       for (AssignableReplica replica : node.getAssignedReplicas()) {
@@ -62,6 +63,7 @@ public class OptimalAssignment {
         resourceAssignment.addReplicaMap(partition, partitionStateMap);
       }
     }
+    System.out.println("Get Optimal Resource Assignment took " + (System.currentTimeMillis() - startTime));
     _optimalAssignment = assignmentMap;
   }
 

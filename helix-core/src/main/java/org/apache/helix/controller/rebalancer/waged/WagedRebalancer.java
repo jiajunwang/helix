@@ -238,7 +238,9 @@ public class WagedRebalancer {
     }
 
     LOG.info("Start computing new ideal states for resources: {}", resourceMap.keySet().toString());
+    long startTime = System.currentTimeMillis();
     validateInput(clusterData, resourceMap);
+    System.out.println("Validate Waged Input took: " + (System.currentTimeMillis() - startTime));
 
     Map<String, IdealState> newIdealStates;
     try {
@@ -246,6 +248,7 @@ public class WagedRebalancer {
       newIdealStates = computeBestPossibleStates(clusterData, resourceMap, currentStateOutput);
     } catch (HelixRebalanceException ex) {
       LOG.error("Failed to calculate the new assignments.", ex);
+      startTime = System.currentTimeMillis();
       // Record the failure in metrics.
       _rebalanceFailureCount.increment(1L);
 
@@ -266,8 +269,10 @@ public class WagedRebalancer {
                 resourceMap.keySet());
         newIdealStates = convertResourceAssignment(clusterData, assignmentRecord);
       }
+      System.out.println("Error handling took: " + (System.currentTimeMillis() - startTime));
     }
 
+    startTime = System.currentTimeMillis();
     // Construct the new best possible states according to the current state and target assignment.
     // Note that the new ideal state might be an intermediate state between the current state and
     // the target assignment.
@@ -288,6 +293,7 @@ public class WagedRebalancer {
             newStateMap == null ? Collections.emptyMap() : newStateMap);
       }
     });
+    System.out.println("Mapping calculator took: " + (System.currentTimeMillis() - startTime));
     LOG.info("Finish computing new ideal states for resources: {}",
         resourceMap.keySet().toString());
     return newIdealStates;
@@ -309,19 +315,24 @@ public class WagedRebalancer {
     Map<String, IdealState> newIdealStates = convertResourceAssignment(clusterData,
         computeBestPossibleAssignment(clusterData, resourceMap, activeNodes, currentStateOutput));
 
+    long startTime = System.currentTimeMillis();
     // The additional rebalance overwrite is required since the calculated mapping may contain
     // some delayed rebalanced assignments.
-    if (!activeNodes.equals(clusterData.getEnabledLiveInstances())) {
+    //if (!activeNodes.equals(clusterData.getEnabledLiveInstances())) {
       applyRebalanceOverwrite(newIdealStates, clusterData, resourceMap,
           getBaselineAssignment(_assignmentMetadataStore, currentStateOutput,
               resourceMap.keySet()));
-    }
+    //}
+    System.out.println("applyRebalanceOverwrite took: " + (System.currentTimeMillis() - startTime));
+
+    startTime = System.currentTimeMillis();
     // Replace the assignment if user-defined preference list is configured.
     // Note the user-defined list is intentionally applied to the final mapping after calculation.
     // This is to avoid persisting it into the assignment store, which impacts the long term
     // assignment evenness and partition movements.
     newIdealStates.entrySet().stream().forEach(idealStateEntry -> applyUserDefinedPreferenceList(
         clusterData.getResourceConfig(idealStateEntry.getKey()), idealStateEntry.getValue()));
+    System.out.println("applyUserDefinedPreferenceList took: " + (System.currentTimeMillis() - startTime));
 
     return newIdealStates;
   }
@@ -331,6 +342,7 @@ public class WagedRebalancer {
       ResourceControllerDataProvider clusterData, Map<String, Resource> resourceMap,
       Set<String> activeNodes, final CurrentStateOutput currentStateOutput)
       throws HelixRebalanceException {
+    long startTime = System.currentTimeMillis();
     getChangeDetector().updateSnapshots(clusterData);
     // Get all the changed items' information. Filter for the items that have content changed.
     final Map<HelixConstants.ChangeType, Set<String>> clusterChanges =
@@ -344,13 +356,18 @@ public class WagedRebalancer {
             })).entrySet().stream().filter(changeEntry -> !changeEntry.getValue().isEmpty())
             .collect(Collectors
                 .toMap(changeEntry -> changeEntry.getKey(), changeEntry -> changeEntry.getValue()));
+    System.out.println("Change detector update took: " + (System.currentTimeMillis() - startTime));
 
     // Perform Global Baseline Calculation
+    startTime = System.currentTimeMillis();
     refreshBaseline(clusterData, clusterChanges, resourceMap, currentStateOutput);
+    System.out.println("refreshBaseline took: " + (System.currentTimeMillis() - startTime));
 
+    startTime = System.currentTimeMillis();
     // Perform partial rebalance
     Map<String, ResourceAssignment> newAssignment =
         partialRebalance(clusterData, clusterChanges, resourceMap, activeNodes, currentStateOutput);
+    System.out.println("partialRebalance took: " + (System.currentTimeMillis() - startTime));
 
     return newAssignment;
   }
@@ -503,16 +520,21 @@ public class WagedRebalancer {
     try {
       clusterModel = ClusterModelProvider.generateClusterModel(clusterData, resourceMap,
           activeNodes, clusterChanges, baseline, prevBestPossibleAssignment);
+      System.out.println("generateClusterModel Took: " +  (System.currentTimeMillis() - startTime));
     } catch (Exception ex) {
       throw new HelixRebalanceException("Failed to generate cluster model.",
           HelixRebalanceException.Type.INVALID_CLUSTER_STATUS, ex);
     }
 
+    long calStartTime = System.currentTimeMillis();
     OptimalAssignment optimalAssignment = _rebalanceAlgorithm.calculate(clusterModel);
+    System.out.println("rebalanceAlgorithm.calculate took " + (System.currentTimeMillis() - calStartTime));
+
     Map<String, ResourceAssignment> newAssignment =
         optimalAssignment.getOptimalResourceAssignment();
 
     LOG.info("Finish calculating an assignment. Took: {} ms.", System.currentTimeMillis() - startTime);
+    System.out.println("Finish calculating an assignment. Took: " +  (System.currentTimeMillis() - startTime));
 
     return newAssignment;
   }
