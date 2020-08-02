@@ -18,8 +18,5 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
-    - name: Build with Maven
-      run: mvn clean install -Dmaven.test.skip.exec=true
     - name: Test metrics-common
-      run: cd metrics-common; mvn test
-      if: contains(steps.file-diff.outputs.all, 'helix/metrics-common')
+      run: cat ${{ steps.file-diff.outputs.all }}
