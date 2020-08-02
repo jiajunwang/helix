@@ -1,19 +1,13 @@
-# This workflow will build a Java project with Maven
-# For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
+# Run full test for any changes that are merged to master branch.
 
-name: Java CI with Maven
-
+name: Helix Merge CI
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
-  build:
-
+  build and test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up JDK 1.8
@@ -24,6 +18,13 @@ jobs:
       run: mvn clean install -Dmaven.test.skip.exec=true
     - name: Test metrics-common
       run: cd metrics-common; mvn test
+    - name: Test metadata-store-directory-common
+      run: cd metadata-store-directory-common; mvn test
+    - name: Test helix-lock
+      run: cd helix-lock; mvn test
+    - name: Test helix-common
+      run: cd helix-common; mvn test
+    - name: Test helix-rest
+      run: cd helix-rest; mvn test
     - name: Test helix-core
       run: cd helix-core; mvn test
-      
