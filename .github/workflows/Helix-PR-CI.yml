@@ -21,4 +21,4 @@ jobs:
       id: file-diff
     - name: Test metrics-common
       run: echo "run"
-      if: contains(steps.file-diff.outputs.all, 'helix/metrics-common')
+      if: contains(steps.file-diff.outputs.all, 'metrics-common')
