@@ -16,8 +16,6 @@ jobs:
         java-version: 1.8
     - name: Get Diff files
       id: file-diff
-      run: |
-        CHANGED=$(git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} -- helix)
-        cat $CHANGED
+      run: git diff --name-only ${{ github.base_ref }} ${{ github.head_ref }} -- helix
     - name: Test metrics-common
       run: cat ${{ steps.file-diff.outputs }}
