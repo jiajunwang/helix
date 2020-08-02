@@ -20,4 +20,4 @@ jobs:
         token: ${{ github.token }}
       id: file-diff
     - name: Test metrics-common
-      run: cat ${{ steps.file-diff.files_created }}
+      run: cat ${{ steps.file-diff.outputs.all }}
