@@ -20,4 +20,5 @@ jobs:
         token: ${{ github.token }}
       id: file-diff
     - name: Test metrics-common
-      run: contains('${{ steps.file-diff.outputs.all }}', 'helix/metrics-common')
+      run: echo "run"
+      if: contains(steps.file-diff.outputs.all, 'helix/metrics-common')
