@@ -14,10 +14,11 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
-    - name: Get Diff files
+    - name: Changed Files Exporter
+      uses: futuratrepadeira/changed-files@v3.1.0
       id: file-diff
-      run: |
-        CHANGED=$(git diff --name-only origin/${{ github.base_ref }} origin/${{ github.head_ref }} -- helix/metrics-common)
-        echo $CHANGED
+      with:
+        repo-token: ${{ github.token }}
+        pattern: '^.*\.(md|markdown)$'
     - name: Test metrics-common
-      run: cat ${{ steps.file-diff.outputs }}
+      run: cat ${{ steps.file-diff.files_created }}
