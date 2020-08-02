@@ -11,6 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: lots0logs/gh-action-get-changed-files@2.1.4
+      id: file-diff
       with:
         token: GITHUB_TOKEN
     - name: Set up JDK 1.8
@@ -21,4 +22,4 @@ jobs:
       run: mvn clean install -Dmaven.test.skip.exec=true
     - name: Test metrics-common
       run: cd metrics-common; mvn test
-      if: contains(outputs.all, 'helix/metrics-common')
+      if: contains(steps.file-diff.outputs.all, 'helix/metrics-common')
