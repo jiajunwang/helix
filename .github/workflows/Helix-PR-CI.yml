@@ -14,11 +14,10 @@ jobs:
       uses: actions/setup-java@v1
       with:
         java-version: 1.8
-    - name: Changed Files Exporter
-      uses: futuratrepadeira/changed-files@v3.1.0
-      id: file-diff
+    - name: Get Changed Files
+      uses: lots0logs/gh-action-get-changed-files@2.1.4
       with:
-        repo-token: ${{ github.token }}
-        pattern: '^.*\.(md|markdown)$'
+        token: ${{ github.token }}
+      id: file-diff
     - name: Test metrics-common
       run: cat ${{ steps.file-diff.files_created }}
