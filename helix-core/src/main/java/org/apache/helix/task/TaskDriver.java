@@ -49,9 +49,11 @@ import org.apache.helix.model.ResourceConfig;
 import org.apache.helix.store.HelixPropertyStore;
 import org.apache.helix.store.zk.ZkHelixPropertyStore;
 import org.apache.helix.util.HelixUtil;
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.api.client.RealmAwareZkClient;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.helix.zookeeper.zkclient.DataUpdater;
+import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -419,28 +421,28 @@ public class TaskDriver {
     }
 
     validateZKNodeLimitation(1);
+
+    List<MultiOp> updateOps = new ArrayList<>();
+
     final List<JobConfig> jobConfigs = new ArrayList<>();
     final List<String> namespacedJobNames = new ArrayList<>();
     final List<String> jobTypeList = new ArrayList<>();
 
-    try {
-      for (int i = 0; i < jobBuilders.size(); i++) {
-        // Create the job to ensure that it validates
-        JobConfig jobConfig = jobBuilders.get(i).setWorkflow(queue).build();
-        String namespacedJobName = TaskUtil.getNamespacedJobName(queue, jobs.get(i));
+    for (int i = 0; i < jobBuilders.size(); i++) {
+      // Create the job to ensure that it validates
+      JobConfig jobConfig = jobBuilders.get(i).setWorkflow(queue).build();
+      String namespacedJobName = TaskUtil.getNamespacedJobName(queue, jobs.get(i));
 
-        // add job config first.
-        addJobConfig(namespacedJobName, jobConfig);
-        jobConfigs.add(jobConfig);
-        namespacedJobNames.add(namespacedJobName);
-        jobTypeList.add(jobConfig.getJobType());
-      }
-    } catch (HelixException e) {
-      LOG.error("Failed to add job configs {}. Remove them all!", jobs.toString());
-      for (String job : jobs) {
-        String namespacedJobName = TaskUtil.getNamespacedJobName(queue, job);
-        TaskUtil.removeJobConfig(_accessor, namespacedJobName);
-      }
+      // add job config first.
+      JobConfig newJobCfg = new JobConfig(namespacedJobName, jobConfig);
+      PropertyKey.Builder keyBuilder = _accessor.keyBuilder();
+      updateOps.add(MultiOp
+          .create(keyBuilder.resourceConfig(namespacedJobName).getPath(), newJobCfg.getRecord(),
+              CreateMode.PERSISTENT));
+
+      jobConfigs.add(jobConfig);
+      namespacedJobNames.add(namespacedJobName);
+      jobTypeList.add(jobConfig.getJobType());
     }
 
     // update the job dag to append the job to the end of the queue.
@@ -523,12 +525,8 @@ public class TaskDriver {
     };
 
     String path = _accessor.keyBuilder().resourceConfig(queue).getPath();
-    boolean status = _accessor.getBaseDataAccessor().update(path, updater, AccessOption.PERSISTENT);
-    if (!status) {
-      LOG.error("Failed to update WorkflowConfig, remove all jobs {}", jobs.toString());
-      for (String job : jobs) {
-        TaskUtil.removeJobConfig(_accessor, job);
-      }
+    updateOps.add(MultiOp.updateData(path, updater));
+    if (!_accessor.getBaseDataAccessor().transactionalWrite(updateOps, null)) {
       throw new HelixException("Failed to enqueue job");
     }
   }

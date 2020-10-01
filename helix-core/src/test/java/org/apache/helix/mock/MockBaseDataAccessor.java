@@ -27,10 +27,12 @@ import java.util.Map;
 
 import org.apache.helix.BaseDataAccessor;
 import org.apache.helix.HelixException;
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.helix.zookeeper.zkclient.DataUpdater;
 import org.apache.helix.zookeeper.zkclient.IZkChildListener;
 import org.apache.helix.zookeeper.zkclient.IZkDataListener;
+import org.apache.zookeeper.OpResult;
 import org.apache.zookeeper.data.Stat;
 
 public class MockBaseDataAccessor implements BaseDataAccessor<ZNRecord> {
@@ -104,6 +106,11 @@ public class MockBaseDataAccessor implements BaseDataAccessor<ZNRecord> {
       e.printStackTrace();
     }
     return true;
+  }
+
+  @Override
+  public boolean transactionalWrite(List<MultiOp> ops, List<OpResult> results) {
+    throw new UnsupportedOperationException("Transactional Write is not supported!");
   }
 
   @Override

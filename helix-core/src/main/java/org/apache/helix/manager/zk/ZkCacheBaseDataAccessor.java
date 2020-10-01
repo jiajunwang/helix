@@ -22,6 +22,7 @@ package org.apache.helix.manager.zk;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -34,6 +35,7 @@ import org.apache.helix.store.HelixPropertyListener;
 import org.apache.helix.store.HelixPropertyStore;
 import org.apache.helix.store.zk.ZNode;
 import org.apache.helix.util.PathUtils;
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.api.client.RealmAwareZkClient;
 import org.apache.helix.zookeeper.zkclient.DataUpdater;
 import org.apache.helix.zookeeper.zkclient.IZkChildListener;
@@ -42,6 +44,8 @@ import org.apache.helix.zookeeper.zkclient.callback.ZkAsyncCallbacks;
 import org.apache.helix.zookeeper.zkclient.exception.ZkNoNodeException;
 import org.apache.helix.zookeeper.zkclient.serialize.ZkSerializer;
 import org.apache.zookeeper.KeeperException.Code;
+import org.apache.zookeeper.OpResult;
+import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.DataTree;
 import org.slf4j.Logger;
@@ -348,6 +352,62 @@ public class ZkCacheBaseDataAccessor<T> implements HelixPropertyStore<T> {
 
     // no cache
     return _baseAccessor.remove(serverPath, options);
+  }
+
+  @Override
+  public boolean transactionalWrite(List<MultiOp> ops, List<OpResult> opResults) {
+    Map<String, Cache<T>> cacheMap = new HashMap<>();
+
+    ops.stream().forEach(op -> {
+      String clientPath = op.getPath();
+      String serverPath = prependChroot(clientPath);
+      cacheMap.put(clientPath, getCache(serverPath));
+    });
+
+    if (!cacheMap.isEmpty()) {
+      try {
+        cacheMap.values().stream().forEach(Cache::lockWrite);
+        if (opResults == null) {
+          // Even the caller does not need results, the cache based accessor needs them for updating
+          // the caches correctly.
+          opResults = new ArrayList<>();
+        }
+        boolean success = _baseAccessor.transactionalWrite(ops, opResults);
+        if (success) {
+          // update caches based on the operation results.
+          for (int i = 0; i < ops.size(); i++) {
+            MultiOp op = ops.get(i);
+            String opPath = op.getPath();
+            String serverPath = prependChroot(opPath);
+            OpResult result = opResults.get(i);
+            switch (result.getType()) {
+              case ZooDefs.OpCode.create:
+                T data = (T) ((MultiOp.CreateOp) op).getDataObj();
+                updateCache(cacheMap.get(opPath), Collections.singletonList(opPath), success,
+                    serverPath, data, ZNode.ZERO_STAT);
+                break;
+              case ZooDefs.OpCode.setData:
+                data = (T) ((MultiOp.SetDataOp) op).getDataObj();
+                cacheMap.get(opPath)
+                    .update(serverPath, data, ((OpResult.SetDataResult) result).getStat());
+                break;
+              case ZooDefs.OpCode.delete:
+                cacheMap.get(opPath).purgeRecursive(serverPath);
+                break;
+              default:
+                LOG.warn("Ignore the unknown write operation result {}", result.getType());
+                break;
+            }
+          }
+        }
+        return success;
+      } finally {
+        cacheMap.values().stream().forEach(Cache::unlockWrite);
+      }
+    }
+
+    // if no cache, fallback to ZK operations.
+    return _baseAccessor.transactionalWrite(ops, null);
   }
 
   @Override

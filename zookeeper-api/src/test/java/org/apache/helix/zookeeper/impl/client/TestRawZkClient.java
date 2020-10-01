@@ -37,6 +37,7 @@ import javax.management.ObjectName;
 
 import org.apache.helix.monitoring.mbeans.MBeanRegistrar;
 import org.apache.helix.monitoring.mbeans.MonitorDomainNames;
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.constant.ZkSystemPropertyKeys;
 import org.apache.helix.zookeeper.datamodel.SessionAwareZNRecord;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
@@ -45,6 +46,7 @@ import org.apache.helix.zookeeper.exception.ZkClientException;
 import org.apache.helix.zookeeper.impl.TestHelper;
 import org.apache.helix.zookeeper.impl.ZkTestBase;
 import org.apache.helix.zookeeper.impl.ZkTestHelper;
+import org.apache.helix.zookeeper.zkclient.DataUpdater;
 import org.apache.helix.zookeeper.zkclient.IZkDataListener;
 import org.apache.helix.zookeeper.zkclient.IZkStateListener;
 import org.apache.helix.zookeeper.zkclient.ZkConnection;
@@ -950,6 +952,92 @@ public class TestRawZkClient extends ZkTestBase {
         }
       }, TestHelper.WAIT_DURATION));
     }
+    System.out.println("End test: " + methodName);
+  }
+
+  @Test
+  public void testMultiOps() {
+    final String methodName = TestHelper.getTestMethodName();
+    System.out.println("Start test: " + methodName);
+
+    String path = "/" + methodName;
+    String deletingPath = path + "/deleting";
+    String creatingPath = path + "/creating";
+
+    try {
+      _zkClient.createPersistent(deletingPath, true);
+
+      // 1. test multi ops failure, all the changes won't be persisted.
+      List<MultiOp> ops = new ArrayList<>();
+      ops.add(MultiOp.delete(deletingPath, -1));
+      ops.add(MultiOp.setData(creatingPath, "TestWrite", -1));
+      try {
+        _zkClient.multiOps(ops);
+        Assert.fail("MultiOps shall fail.");
+      } catch (Exception ex) {
+        // Expected error
+      }
+      Assert.assertTrue(_zkClient.exists(deletingPath));
+
+      // 2. test multi ops succeed. All changes shall be persisted.
+      ops.clear();
+      ops.add(MultiOp.delete(deletingPath, -1));
+      ops.add(MultiOp.create(creatingPath, null, CreateMode.PERSISTENT));
+      ops.add(MultiOp.setData(creatingPath, "TestWrite", -1));
+      _zkClient.multiOps(ops);
+      Assert.assertFalse(_zkClient.exists(deletingPath));
+      Assert.assertTrue(_zkClient.exists(creatingPath));
+      Assert.assertEquals(_zkClient.readData(creatingPath), "TestWrite");
+
+      // 3. test multi ops succeed with updater.
+      ops.clear();
+      ops.add(MultiOp.updateData(creatingPath, currentData -> "TestUpdater"));
+      _zkClient.multiOps(ops);
+      Assert.assertTrue(_zkClient.exists(creatingPath));
+      Assert.assertEquals(_zkClient.readData(creatingPath), "TestUpdater");
+      // The test removed the original node and recreated a new one, so after one modification, the
+      // version should be 1.
+      Assert.assertEquals(_zkClient.getStat(creatingPath).getVersion(), 2);
+
+      // 4. test update a non exist node.
+      // Even it will be created during the multiops, the operation will fail since the node can
+      // not be read by the updater logic before sending request.
+      ops.clear();
+      ops.add(MultiOp.create(deletingPath, null, CreateMode.PERSISTENT));
+      ops.add(MultiOp.updateData(deletingPath, currentData -> "TestUpdater"));
+      try {
+        _zkClient.multiOps(ops);
+        Assert.fail("Updating a non-exist node will fail even it is supposed to be created during"
+            + " the multiOps request.");
+      } catch (ZkException ex) {
+        // expected.
+      }
+
+      // 5. test invalid mix ops.
+      ops.clear();
+      ops.add(MultiOp.setData(creatingPath, "test", -1));
+      ops.add(MultiOp.updateData(creatingPath, currentData -> "TestUpdater"));
+      try {
+        _zkClient.multiOps(ops);
+        Assert.fail("Set and Update ops cannot be submitted in one multiOp request.");
+      } catch (ZkException ex) {
+        // expected.
+      }
+
+      // 6. test update one path for more than one time.
+      ops.clear();
+      ops.add(MultiOp.updateData(creatingPath, currentData -> "TestUpdater1"));
+      ops.add(MultiOp.updateData(creatingPath, currentData -> "TestUpdater2"));
+      try {
+        _zkClient.multiOps(ops);
+        Assert.fail("Update ops cannot touch one path for more than once in one requestcomm");
+      } catch (ZkException ex) {
+        // expected.
+      }
+    } finally {
+      _zkClient.deleteRecursively(path);
+    }
+
     System.out.println("End test: " + methodName);
   }
 }

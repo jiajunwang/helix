@@ -37,6 +37,7 @@ import org.apache.helix.msdcommon.exception.InvalidRoutingDataException;
 import org.apache.helix.store.zk.ZNode;
 import org.apache.helix.util.HelixUtil;
 import org.apache.helix.zookeeper.api.client.HelixZkClient;
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.api.client.RealmAwareZkClient;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
 import org.apache.helix.zookeeper.datamodel.serializer.ZNRecordSerializer;
@@ -56,6 +57,7 @@ import org.apache.helix.zookeeper.zkclient.serialize.PathBasedZkSerializer;
 import org.apache.helix.zookeeper.zkclient.serialize.ZkSerializer;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException.Code;
+import org.apache.zookeeper.OpResult;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.DataTree;
 import org.slf4j.Logger;
@@ -710,6 +712,21 @@ public class ZkBaseDataAccessor<T> implements BaseDataAccessor<T> {
         LOG.error("Failed to delete {} recursively with opts {}.", path, options, zce);
         return false;
       }
+    }
+    return true;
+  }
+
+  @Override
+  public boolean transactionalWrite(List<MultiOp> ops, List<OpResult> results) {
+    try {
+      List<OpResult> ret = _zkClient.multiOps(ops);
+      if (results != null) {
+        results.clear();
+        results.addAll(ret);
+      }
+    } catch (Exception ex) {
+      LOG.error("Failed to execute multiOps.", ex);
+      return false;
     }
     return true;
   }

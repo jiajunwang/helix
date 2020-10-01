@@ -22,6 +22,7 @@ package org.apache.helix.zookeeper.zkclient;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -32,9 +33,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import javax.management.JMException;
 
 import org.apache.helix.zookeeper.api.client.ChildrenSubscribeResult;
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.datamodel.SessionAwareZNRecord;
 import org.apache.helix.zookeeper.constant.ZkSystemPropertyKeys;
 import org.apache.helix.zookeeper.datamodel.ZNRecord;
@@ -73,6 +76,7 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 /**
  * "Native ZkClient": not to be used directly.
@@ -2292,18 +2296,117 @@ public class ZkClient implements Watcher {
     return listeners;
   }
 
+  @Deprecated
   public List<OpResult> multi(final Iterable<Op> ops) throws ZkException {
     if (ops == null) {
       throw new NullPointerException("ops must not be null.");
     }
+    return retryUntilConnected(() -> getConnection().multi(ops));
+  }
 
-    return retryUntilConnected(new Callable<List<OpResult>>() {
+  public List<OpResult> multiOps(final List<MultiOp> ops) throws ZkException {
+    if (ops == null) {
+      throw new NullPointerException("ops must not be null.");
+    }
 
-      @Override
-      public List<OpResult> call() throws Exception {
-        return getConnection().multi(ops);
+    boolean hasUpdateOp = false;
+    boolean hasSetOrDeleteOp = false;
+    Set<String> opTargetPaths = new HashSet<>();
+    for (MultiOp multiOp : ops) {
+      opTargetPaths.add(multiOp.getPath());
+      if (multiOp instanceof MultiOp.UpdateOp) {
+        hasUpdateOp = true;
+      } else if (multiOp instanceof MultiOp.SetDataOp || multiOp instanceof MultiOp.DeleteOp) {
+        hasSetOrDeleteOp = true;
       }
-    });
+    }
+    // Evaluate if the requests are valid
+    if (hasUpdateOp && hasSetOrDeleteOp) {
+      throw new ZkException(
+          "One multiOp request shall not contain both update op and setData/delete op. "
+              + "Please split the request.");
+    }
+    if (hasUpdateOp && opTargetPaths.size() < ops.size()) {
+      throw new ZkException(
+          "One multiOp request contains update op shall not touch one path more than once."
+              + "Otherwise the updater logic will fail.");
+    }
+
+    long startT = System.currentTimeMillis();
+    final Op[] zkOps = new Op[ops.size()];
+    // record the data byte arrays for metric reporting.
+    final byte[][] dataByteArrays = new byte[ops.size()][];
+
+    try {
+      boolean retry;
+      do {
+        retry = false;
+        // Iterate each MultiOp object to transform them into Zookeeper.Op.
+        // Meanwhile, record the input data array for monitoring.
+        for (int i = 0; i < ops.size(); i++) {
+          int cur = i; // Effectively final the index for dataByte array recording
+          MultiOp multiOp = ops.get(i);
+          if (zkOps[i] == null || multiOp instanceof MultiOp.UpdateOp) {
+            // Calculate the ZK Op if it has not done before. Or if it is a update MultiOp which needs
+            // to be updated before every request.
+            zkOps[i] = multiOp.buildZkOp(this, new PathBasedZkSerializer() {
+              // It is hard to trigger serializer and validate the data array while we are using
+              // Zookeeper multi method. So combine the serializer and validate together in an
+              // anonymous class to make it work.
+              @Override
+              public byte[] serialize(Object data, String path) throws ZkMarshallingError {
+                final byte[] dataBytes =
+                    data == null ? null : getZkSerializer().serialize(data, path);
+                checkDataSizeLimit(dataBytes);
+                dataByteArrays[cur] = dataBytes;
+                return dataBytes;
+              }
+
+              @Override
+              public Object deserialize(byte[] bytes, String path) throws ZkMarshallingError {
+                throw new UnsupportedOperationException(
+                    "multiOp implementation shall not trigger deserialize method.");
+              }
+            });
+          }
+        }
+
+        try {
+          List<OpResult> results =
+              retryUntilConnected(() -> getConnection().multi(Arrays.asList(zkOps)));
+          for (int i = 0; i < zkOps.length; i++) {
+            // Strict check might be needed to determine if a multiOp is write. But we don't do it now
+            // since,
+            // 1. We only support limited operations through the Helix multiOp method. All of them are
+            // real write operation.
+            // 2. ZK server logic tends to treat multiOps as write operations.
+            record(zkOps[i].getPath(), dataByteArrays[i], startT, ZkClientMonitor.AccessType.WRITE);
+          }
+          return results;
+        } catch (ZkBadVersionException e) {
+          if (hasUpdateOp) {
+            retry = true;
+          } else {
+            // If no updater to update the request, then the result would be the same. Retry is
+            // meaningless.
+            throw e;
+          }
+        }
+      } while (retry);
+    } catch (Exception e) {
+      for (MultiOp multiOp : ops) {
+        recordFailure(multiOp.getPath(), ZkClientMonitor.AccessType.WRITE);
+      }
+      throw e;
+    } finally {
+      long endT = System.currentTimeMillis();
+      if (LOG.isTraceEnabled()) {
+        LOG.trace("zkclient {}, multiOps, paths {}, time {} ms", _uid,
+            ops.stream().map(op -> op.getPath()).collect(Collectors.toList()), (endT - startT));
+      }
+    }
+    // The retry loop should prevent the following assert error.
+    throw new AssertionError("The MultiOp operation is finished without completing the request.");
   }
 
   /**

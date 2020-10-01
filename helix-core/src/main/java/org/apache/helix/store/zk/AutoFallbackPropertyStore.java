@@ -28,7 +28,9 @@ import java.util.Set;
 
 import org.apache.helix.AccessOption;
 import org.apache.helix.manager.zk.ZkBaseDataAccessor;
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.zkclient.DataUpdater;
+import org.apache.zookeeper.OpResult;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -301,6 +303,19 @@ public class AutoFallbackPropertyStore<T> extends ZkHelixPropertyStore<T> {
 
       List<String> allChilds = new ArrayList<String>(allChildSet);
       return allChilds;
+    }
+  }
+
+  @Override
+  public boolean transactionalWrite(List<MultiOp> ops, List<OpResult> results) {
+    if (super.transactionalWrite(ops, results)) {
+      return true;
+    } else if (_fallbackStore != null) {
+      // Note, since the whole transactional write request has to be done by a single accessor,
+      // we cannot split the operations and fallback request separately.
+      return _fallbackStore.transactionalWrite(ops, results);
+    } else {
+      return false;
     }
   }
 

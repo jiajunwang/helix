@@ -21,9 +21,11 @@ package org.apache.helix;
 
 import java.util.List;
 
+import org.apache.helix.zookeeper.api.client.MultiOp;
 import org.apache.helix.zookeeper.zkclient.DataUpdater;
 import org.apache.helix.zookeeper.zkclient.IZkChildListener;
 import org.apache.helix.zookeeper.zkclient.IZkDataListener;
+import org.apache.zookeeper.OpResult;
 import org.apache.zookeeper.data.Stat;
 
 
@@ -84,6 +86,15 @@ public interface BaseDataAccessor<T> {
    * @return true if the removal succeeded, false otherwise
    */
   boolean remove(String path, int options);
+
+  /**
+   * Execute a list of write operations in a transaction.
+   * The result will be either all done or nothing done.
+   * @param ops A list of write operations.
+   * @param results if not null, output the operation results.
+   * @return true if the multi ops request succeeded, false otherwise
+   */
+  boolean transactionalWrite(List<MultiOp> ops, List<OpResult> results);
 
   /**
    * Use it when creating children under a parent node. This will use async api for better
