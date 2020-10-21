@@ -19,13 +19,6 @@ package org.apache.helix.zookeeper.impl.client;
  * under the License.
  */
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.helix.msdcommon.datamodel.MetadataStoreRoutingData;
 import org.apache.helix.msdcommon.exception.InvalidRoutingDataException;
 import org.apache.helix.zookeeper.api.client.ChildrenSubscribeResult;
@@ -36,11 +29,7 @@ import org.apache.helix.zookeeper.constant.RoutingSystemPropertyKeys;
 import org.apache.helix.zookeeper.exception.MultiZkException;
 import org.apache.helix.zookeeper.impl.factory.DedicatedZkClientFactory;
 import org.apache.helix.zookeeper.routing.RoutingDataManager;
-import org.apache.helix.zookeeper.zkclient.DataUpdater;
-import org.apache.helix.zookeeper.zkclient.IZkChildListener;
-import org.apache.helix.zookeeper.zkclient.IZkDataListener;
-import org.apache.helix.zookeeper.zkclient.IZkStateListener;
-import org.apache.helix.zookeeper.zkclient.ZkConnection;
+import org.apache.helix.zookeeper.zkclient.*;
 import org.apache.helix.zookeeper.zkclient.callback.ZkAsyncCallbacks;
 import org.apache.helix.zookeeper.zkclient.serialize.BasicZkSerializer;
 import org.apache.helix.zookeeper.zkclient.serialize.PathBasedZkSerializer;
@@ -53,6 +42,13 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -411,8 +407,18 @@ public class FederatedZkClient implements RealmAwareZkClient {
 
   @Override
   public List<OpResult> multiOps(final List<MultiOp> ops) {
-    throwUnsupportedOperationException();
-    return null;
+    // Check if all the operations are targeting to one Realm
+    ZkClient zkClient = null;
+    for (MultiOp op : ops) {
+      ZkClient curZkClient = getZkClient(op.getPath());
+      if (zkClient != null && !zkClient.getServers().equals(curZkClient.getServers())) {
+        throw new UnsupportedOperationException(
+                "Cannot support execute operations that are targeting to different ZK addresses.");
+      } else {
+        zkClient = curZkClient;
+      }
+    }
+    return zkClient.multiOps(ops);
   }
 
   @Override

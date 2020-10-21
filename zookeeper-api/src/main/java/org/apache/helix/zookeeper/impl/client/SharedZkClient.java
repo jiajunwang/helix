@@ -456,11 +456,17 @@ public class SharedZkClient implements RealmAwareZkClient {
   @Deprecated
   @Override
   public List<OpResult> multi(Iterable<Op> ops) {
+    for (Op op : ops) {
+      checkIfPathContainsShardingKey(op.getPath());
+    }
     return _innerSharedZkClient.multi(ops);
   }
 
   @Override
   public List<OpResult> multiOps(final List<MultiOp> ops) {
+    for (MultiOp op : ops) {
+      checkIfPathContainsShardingKey(op.getPath());
+    }
     return _innerSharedZkClient.multiOps(ops);
   }
 
