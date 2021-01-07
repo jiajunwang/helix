@@ -20,4 +20,4 @@ jobs:
         run: echo "$GITHUB_CONTEXT"
       - name: Validate if the PR is ready to be merged.
         run: echo "Ready!"
-        if: ${{ contains(context.payload.pull_request.body, '[ ]') && context.payload.pull_request.state == "APPROVED" }}
+        if: ${{ contains(github.payload.pull_request.body, '[ ]') && github.payload.pull_request.state == "APPROVED" }}
