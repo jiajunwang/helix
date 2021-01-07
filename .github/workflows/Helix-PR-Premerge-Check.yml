@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
       - name: Validate if the PR is ready to be merged.
         run: echo "Ready!"
         if: ${{ contains(context.payload.pull_request.body, '[ ]') && context.payload.pull_request.state == "APPROVED" }}
