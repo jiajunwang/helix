@@ -17,30 +17,27 @@ jobs:
       with:
         java-version: 1.8
     - name: Get Changed Files
-      uses: lots0logs/gh-action-get-changed-files@2.1.4
-      with:
-        token: ${{ github.token }}
-      id: file-diff
+      run: git diff master --name-only > diff.out
     - name: Build with Maven
       run: mvn clean install -Dmaven.test.skip.exec=true
     - name: Test metrics-common
       run: cd metrics-common; mvn -q test
-      if: ${{ contains(steps.file-diff.outputs.all, 'metrics-common') && (success() || failure()) }}
+      if: ${{ contains(diff.out, 'metrics-common') && (success() || failure()) }}
     - name: Test metadata-store-directory-common
       run: cd metadata-store-directory-common; mvn -q test
-      if: ${{ contains(steps.file-diff.outputs.all, 'metadata-store-directory-common') && (success() || failure()) }}
+      if: ${{ contains(diff.out, 'metadata-store-directory-common') && (success() || failure()) }}
     - name: Test zookeeper-api
       run: cd zookeeper-api; mvn -q test
-      if: ${{ contains(steps.file-diff.outputs.all, 'zookeeper-api') && (success() || failure()) }}
+      if: ${{ contains(diff.out, 'zookeeper-api') && (success() || failure()) }}
     - name: Test helix-common
       run: cd helix-common; mvn -q test
-      if: ${{ contains(steps.file-diff.outputs.all, 'helix-common') && (success() || failure()) }}
+      if: ${{ contains(diff.out, 'helix-common') && (success() || failure()) }}
     - name: Test helix-lock
       run: cd helix-lock; mvn -q test
-      if: ${{ contains(steps.file-diff.outputs.all, 'helix-lock') && (success() || failure()) }}
+      if: ${{ contains(diff.out, 'helix-lock') && (success() || failure()) }}
     - name: Test helix-rest
       run: cd helix-rest; mvn -q test
-      if: ${{ contains(steps.file-diff.outputs.all, 'helix-rest') && (success() || failure()) }}
+      if: ${{ contains(diff.out, 'helix-rest') && (success() || failure()) }}
     - name: Test helix-core
       run: cd helix-core; mvn -q test
-      if: ${{ contains(steps.file-diff.outputs.all, 'helix-core') && (success() || failure()) }}
+      if: ${{ contains(diff.out, 'helix-core') && (success() || failure()) }}
