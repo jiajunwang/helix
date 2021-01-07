@@ -14,17 +14,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: View context attributes
-        uses: actions/github-script@v3
-        with:
-          script: console.log(context)
-      - name: Verify All Tasks are Finished
-        uses: venkatsarvesh/pr-tasks-completed-action@v1.0.0
-        with:
-          repo-token: "${{ secrets.GITHUB_TOKEN }}"
-      - name: Verify the PR has been approved
-        uses: abinoda/label-when-approved-action@1.0.5
-        env:
-          APPROVALS: "1"
-          ADD_LABEL: "CheckedAndApproved"
-          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Validate if the PR is ready to be merged.
+        run: echo "Ready!"
+        if: ${{ contains(context.payload.pull_request.body, '[ ]') && context.payload.pull_request.state == "APPROVED" }}
