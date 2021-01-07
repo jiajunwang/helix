@@ -21,28 +21,26 @@ jobs:
         git fetch origin master
         echo "::set-output name=files::$(git diff --name-only origin/master HEAD)"
       id: find-diff
-    - name: debug
-      run: echo ${{steps.find-diff.outputs.files}}
     - name: Build with Maven
       run: mvn clean install -Dmaven.test.skip.exec=true
     - name: Test metrics-common
       run: cd metrics-common; mvn -q test
-      if: ${{ contains(steps.find-diff.outputs, 'metrics-common') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs.files, 'metrics-common') && (success() || failure()) }}
     - name: Test metadata-store-directory-common
       run: cd metadata-store-directory-common; mvn -q test
-      if: ${{ contains(steps.find-diff.outputs, 'metadata-store-directory-common') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs.files, 'metadata-store-directory-common') && (success() || failure()) }}
     - name: Test zookeeper-api
       run: cd zookeeper-api; mvn -q test
-      if: ${{ contains(steps.find-diff.outputs, 'zookeeper-api') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs.files, 'zookeeper-api') && (success() || failure()) }}
     - name: Test helix-common
       run: cd helix-common; mvn -q test
-      if: ${{ contains(steps.find-diff.outputs, 'helix-common') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs.files, 'helix-common') && (success() || failure()) }}
     - name: Test helix-lock
       run: cd helix-lock; mvn -q test
-      if: ${{ contains(steps.find-diff.outputs, 'helix-lock') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs.files, 'helix-lock') && (success() || failure()) }}
     - name: Test helix-rest
       run: cd helix-rest; mvn -q test
-      if: ${{ contains(steps.find-diff.outputs, 'helix-rest') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs.files, 'helix-rest') && (success() || failure()) }}
     - name: Test helix-core
       run: cd helix-core; mvn -q test
-      if: ${{ contains(steps.find-diff.outputs, 'helix-core') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs.files, 'helix-core') && (success() || failure()) }}
