@@ -17,7 +17,7 @@ jobs:
       with:
         java-version: 1.8
     - name: Get Changed Files
-      run: git diff master --name-only
+      run: git diff origin/master HEAD --name-only
       id: find-diff
     - name: Build with Maven
       run: mvn clean install -Dmaven.test.skip.exec=true
