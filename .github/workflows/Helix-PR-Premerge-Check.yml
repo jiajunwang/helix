@@ -14,10 +14,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Dump GitHub context
+      - name: Dump GitHub context1
         env:
-          GITHUB_CONTEXT: ${{ toJson(github) }}
-        run: echo "$GITHUB_CONTEXT"
+          BODY: ${{ toJson(github.event.pull_request.body) }}
+        run: echo "$BODY"
+      - name: Dump GitHub context2
+        env:
+          STATE: ${{ toJson(github.event.pull_request.state) }}
+        run: echo "$STATE"
       - name: Validate if the PR is ready to be merged.
         run: echo "Ready!"
-        if: ${{ contains(github.payload.pull_request.body, '[ ]') && (github.payload.pull_request.state == 'APPROVED') }}
+        if: ${{ contains(github.event.pull_request.body, '[ ]') && (github.event.pull_request.state == 'APPROVED') }}
