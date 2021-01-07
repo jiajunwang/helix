@@ -17,27 +17,28 @@ jobs:
       with:
         java-version: 1.8
     - name: Get Changed Files
-      run: git diff master --name-only > diff.out
+      run: git diff master --name-only
+      id: find-diff
     - name: Build with Maven
       run: mvn clean install -Dmaven.test.skip.exec=true
     - name: Test metrics-common
       run: cd metrics-common; mvn -q test
-      if: ${{ contains(diff.out, 'metrics-common') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs, 'metrics-common') && (success() || failure()) }}
     - name: Test metadata-store-directory-common
       run: cd metadata-store-directory-common; mvn -q test
-      if: ${{ contains(diff.out, 'metadata-store-directory-common') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs, 'metadata-store-directory-common') && (success() || failure()) }}
     - name: Test zookeeper-api
       run: cd zookeeper-api; mvn -q test
-      if: ${{ contains(diff.out, 'zookeeper-api') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs, 'zookeeper-api') && (success() || failure()) }}
     - name: Test helix-common
       run: cd helix-common; mvn -q test
-      if: ${{ contains(diff.out, 'helix-common') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs, 'helix-common') && (success() || failure()) }}
     - name: Test helix-lock
       run: cd helix-lock; mvn -q test
-      if: ${{ contains(diff.out, 'helix-lock') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs, 'helix-lock') && (success() || failure()) }}
     - name: Test helix-rest
       run: cd helix-rest; mvn -q test
-      if: ${{ contains(diff.out, 'helix-rest') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs, 'helix-rest') && (success() || failure()) }}
     - name: Test helix-core
       run: cd helix-core; mvn -q test
-      if: ${{ contains(diff.out, 'helix-core') && (success() || failure()) }}
+      if: ${{ contains(steps.find-diff.outputs, 'helix-core') && (success() || failure()) }}
