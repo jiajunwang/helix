@@ -17,10 +17,12 @@ jobs:
       with:
         java-version: 1.8
     - name: Get Changed Files
-      run: git fetch origin master > /dev/null 2>&1; git diff --name-only origin/master HEAD
+      run: |
+        git fetch origin master
+        echo "::set-output name=files::$(git diff --name-only origin/master HEAD)"
       id: find-diff
     - name: debug
-      run: echo ${{steps.find-diff.outputs}}
+      run: echo ${{steps.find-diff.outputs.files}}
     - name: Build with Maven
       run: mvn clean install -Dmaven.test.skip.exec=true
     - name: Test metrics-common
